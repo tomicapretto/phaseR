@@ -19,10 +19,11 @@ Authors@R: c(person(given   = "Michael J",
                     family  = "Guckenheimer",
                     role    = "ctb"))
 Imports:
-    deSolve,
+    deSolve (>= 1.28),
     graphics,
     grDevices,
-    utils
+    utils,
+    ggplot2 (>= 3.3.1)
 Description: Performs a qualitative analysis of one- and two-dimensional
    autonomous ordinary differential equation systems, using phase plane methods.
    Programs are available to identify and classify equilibrium points, plot the
