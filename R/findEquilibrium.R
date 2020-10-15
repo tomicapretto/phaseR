@@ -251,15 +251,23 @@ findEquilibrium <- function(deriv, y0 = NULL, parameters = NULL,
 findEquilibrium2 <- function(deriv, y0 = NULL, parameters = NULL,
                             system = "two.dim", tol = 1e-16,
                             max.iter = 50, h = 1e-6, plot.it = FALSE,
-                            summary = TRUE,
-                            state.names =
-                              if (system == "two.dim") c("x", "y") else "y") {
+                            summary = TRUE, state.names = "default") {
+
+  # Changed the order to be consistent (i.e. Don't use system before checking it is right)
+  if (!(system %in% c("one.dim", "two.dim"))) {
+    stop("system must be set to either \"one.dim\" or \"two.dim\"")
+  }
+  if (state.names == "default") {
+    state.names <- if (system == "two.dim") c("x", "y") else "y"
+  }
+  # I think there is a bug here. It is assuming the names are "x" and "y"
+  # no matter what you pass to y0.
   if (is.null(y0)) {
-    y0                       <- locator(n = 1)
+    y0 <- locator(n = 1)
     if (system == "one.dim") {
-      y0                     <- y0$y
+      y0 <- y0$y
     } else {
-      y0                     <- c(y0$x, y0$y)
+      y0 <- c(y0$x, y0$y)
     }
   }
   if (all(!is.vector(y0), !is.matrix(y0))) {
@@ -268,14 +276,12 @@ findEquilibrium2 <- function(deriv, y0 = NULL, parameters = NULL,
   if (is.vector(y0)) {
     y0 <- as.matrix(y0)
   }
-  if (!(system %in% c("one.dim", "two.dim"))) {
-    stop("system must be set to either \"one.dim\" or \"two.dim\"")
-  }
-  if (all(system == "one.dim", nrow(y0)*ncol(y0) != 1)) {
+
+  if (all(system == "one.dim", nrow(y0) * ncol(y0) != 1)) {
     stop("For system = \"one.dim\", y0 should be a matrix where ",
          "nrow(y0)*ncol(y0) = 1 or a vector of length one")
   }
-  if (all(system == "two.dim", nrow(y0)*ncol(y0) != 2)) {
+  if (all(system == "two.dim", nrow(y0) * ncol(y0) != 2)) {
     stop("For system = \"two.dim\", y0 should be a matrix where ",
          "nrow(y0)*ncol(y0) = 2 or a vector of length two")
   }
@@ -297,8 +303,10 @@ findEquilibrium2 <- function(deriv, y0 = NULL, parameters = NULL,
   if (!is.logical(summary)){
     stop("summary must be set to either TRUE or FALSE")
   }
+
   y <- y0
   dim <- nrow(y)
+
   for (i in 1:max.iter) {
 
     dy <- deriv(0, stats::setNames(y, utils::head(state.names, n = dim)), parameters)[[1]]
@@ -355,6 +363,7 @@ findEquilibrium2 <- function(deriv, y0 = NULL, parameters = NULL,
           }
         }
       }
+
       if (plot.it) {
         eigenvalues <- eigen(jacobian)$values
         pchs <- matrix(c(17, 5, 2, 16, 1, 1), 2, 3, byrow = T)
@@ -378,7 +387,6 @@ findEquilibrium2 <- function(deriv, y0 = NULL, parameters = NULL,
           message("discriminant = ", round(discriminant, 5), ", classification = ", classification)
         } else {
           message("Fixed point at (", paste0(state.names, collapse = ','), ") = ", round(y, 5))
-
           message("tr = ", round(tr, 5), ", Delta = ", round(Delta, 5),
                   ", discriminant = ", round(discriminant, 5),
                   ", classification = ", classification)
@@ -417,11 +425,13 @@ findEquilibrium2 <- function(deriv, y0 = NULL, parameters = NULL,
                     ystar          = y))
       }
     }
+
     y <- y - solve(jacobian, dy)
     if (summary) {
       message(i, y)
     }
   }
+
   if (summary) {
     message("Convergence failed")
   }

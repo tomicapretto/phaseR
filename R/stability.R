@@ -192,3 +192,132 @@ stability <- function(deriv, ystar = NULL, parameters = NULL,
                 ystar          = ystar))
   }
 }
+
+
+# NOTES:
+# y0 can be a vector of length one or two... allowing matrices makes the thiing
+# a little more complicated and I prefer it to be clean.
+# For example, the check to ensure y0 is a column vector is not clear (at least to me initially)
+
+stability2 <- function(deriv, y0 = NULL, parameters = NULL,
+                       system = "two.dim", h = 1e-07, summary = TRUE,
+                       state.names = "default") {
+
+  # Requires an open plot window
+  if (is.null(y0)) {
+    y0 <- locator(n = 1)
+    if (system == "two.dim") {
+      y0 <- c(y0$x, y0$y)
+    } else {
+      y0 <- y0$y
+    }
+  }
+  if (!(system %in% c("one.dim", "two.dim"))) {
+    stop("system must be set to either \"one.dim\" or \"two.dim\"")
+  }
+  if (!(is.vector(y0) && (length(y0) == 1 || length(y0) == 2))) {
+    stop("y0 is not a vector of length one or two as required")
+  }
+
+  if (system == "one.dim") {
+    if (length(y0) != 1) {
+      stop("For system = \"one.dim\", y0 must be a vector of length one")
+    }
+  }
+  if (system == "two.dim") {
+    if (length(y0) != 2) {
+      stop("For system = \"two.dim\", y0 must be a vector of length two ")
+    }
+    y0 <- as.matrix(y0)
+  }
+  if (h <= 0) {
+    stop("h is less than or equal to zero")
+  }
+  if (!is.logical(summary)) {
+    stop("summary must either be set to either TRUE or FALSE")
+  }
+  if (state.names == "default") {
+    state.names <- if (system == "two.dim") c("x", "y") else "y"
+  }
+  if (system == "one.dim") {
+    stopifnot(length(state.names) == 1)
+  } else if (system == "two.dim") {
+    stopifnot(length(state.names) == 2)
+  }
+
+  if (system == "one.dim") {
+    deriv_ph <- deriv(0, stats::setNames(y0 + h, state.names), parameters)[[1]]
+    deriv_mh <- deriv(0, stats::setNames(y0 - h, state.names), parameters)[[1]]
+    discriminant <- (deriv_ph - deriv_mh) / (2 * h)
+
+    classification <- if (discriminant > 0) {
+      "Unstable"
+    } else if (discriminant < 0) {
+      "Stable"
+    } else {
+      "Indeterminate"
+    }
+
+    if (summary) {
+      message("discriminant = ", round(discriminant, 5),
+              ", classification = ", classification)
+    }
+    return(invisible(
+      list(classification = classification, deriv = deriv,
+           discriminant = discriminant, h = h, parameters = parameters,
+           summary = summary, system = system, y0 = y0)
+    ))
+  } else {
+    jacobian <- matrix(0, 2, 2)
+    for (j in 1:2) {
+      h.vec <- numeric(2)
+      h.vec[j] <- h
+      deriv_ph <- deriv(0, stats::setNames(y0 + h.vec, state.names), parameters)
+      deriv_mh <- deriv(0, stats::setNames(y0 - h.vec, state.names), parameters)
+      jacobian[, j] <- (deriv_ph[[1]] - deriv_mh[[1]]) / (2 * h)
+    }
+
+    Delta <- jacobian[1, 1] * jacobian[2, 2] - jacobian[1, 2] * jacobian[2, 1]
+    tr <- jacobian[1, 1] + jacobian[2, 2]
+    discriminant <- tr ^ 2 - 4 * Delta
+    eigen <- eigen(jacobian)
+    eigenvalues <- eigen$values
+    eigenvectors <- eigen$vectors
+
+    classification <- if (Delta < 0) {
+      "Saddle"
+    } else if (Delta == 0) {
+      "Indeterminate"
+    } else {
+      if (discriminant > 0) {
+        if (tr < 0) {
+          "Stable node"
+        } else if (tr > 0) {
+          "Unstable node"
+        }
+      } else if (discriminant < 0) {
+        if (tr < 0) {
+          "Stable focus"
+        } else if (tr > 0) {
+          "Unstable focus"
+        } else {
+          "Centre"
+        }
+      }
+    }
+
+    if (summary) {
+      message("tr = ", round(tr, 5), ", Delta = ", round(Delta, 5),
+              ", discriminant = ",  round(discriminant, 5),
+              ", classification = ", classification)
+    }
+
+    return(invisible(
+      list(classification = classification, Delta = Delta, deriv = deriv,
+           discriminant = discriminant, eigenvalues = eigenvalues,
+           eigenvectors = eigenvectors, h = h, jacobian = jacobian,
+           parameters = parameters, summary = summary, system = system,
+           tr = tr, y0 = y0)
+      ))
+  }
+}

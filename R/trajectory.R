@@ -266,3 +266,159 @@ trajectory <- function(deriv, y0 = NULL, n = NULL, tlim, tstep = 0.01,
                 y0         = y0))
   }
 }
+
+
+trajectory2 <- function(deriv, y0 = NULL, n = NULL, tlim, tstep = 0.01,
+                        parameters = NULL, system = "two.dim", col = "black",
+                        add = TRUE, state.names = "default", method = "ode45", ...) {
+  if (tstep == 0) {
+    stop("tstep is equal to 0")
+  }
+  if (tlim[1] == tlim[2]) {
+    stop("tlim[1] is equal to tlim[2]")
+  }
+  if (all(tlim[1] > tlim[2], tstep > 0)) {
+    stop("tstep must be negative if tlim[1] > tlim[2]")
+  }
+  if (all(tlim[1] < tlim[2], tstep < 0)) {
+    stop("tstep must be positive if tlim[1] < tlim[2]")
+  }
+  if (!(system %in% c("one.dim", "two.dim"))) {
+    stop("system must be set to either \"one.dim\" or \"two.dim\"")
+  }
+  if (!is.vector(col)) {
+    stop("col is not a vector as required")
+  }
+  if (!is.logical(add)) {
+    stop("add must be logical")
+  }
+  if (all(is.null(y0), is.null(n))) {
+    stop("Both y0 and n cannot be NULL")
+  }
+  if (all(!is.null(y0), !is.null(n))) {
+    warning("n is non-NULL whilst y0 has also been specified")
+  }
+  if (all(is.null(y0), !add)) {
+    stop("y0 cannot be NULL when add is set to FALSE")
+  }
+
+  # For `n = NULL`, the default, this won't work.
+  # oh, already checked 4 o 5 lines above.
+  if (is.null(y0)) {
+    y0 <- locator(n = n)
+    if (system == "two.dim") {
+      # We can achieve this without the `for`.
+      re.set <- matrix(0, ncol = 2, nrow = n)
+      for (i in 1:n) {
+        re.set[i, ] <- c(y0$x[i], y0$y[i])
+      }
+      y0 <- re.set
+    }
+    if (system == "one.dim") {
+      # We can achieve this without the `for`.
+      re.set <- numeric(n)
+      for (i in 1:n) {
+        re.set[i] <- y0$y[i]
+      }
+      y0 <- re.set
+    }
+  }
+  if (all(!is.vector(y0), !is.matrix(y0))) {
+    stop("y0 is neither a number, vector or matrix as required")
+  }
+  if (is.vector(y0)) {
+    y0 <- as.matrix(y0)
+  }
+  if (all(system == "one.dim", dim(y0) > 1)) {
+    stop("For system equal to \"one.dim\", y0 must contain either a vector or ",
+         "a matrix where either nrow(y0) or ncol(y0) is 1")
+  }
+  if (all(system == "two.dim", !any(dim(y0) == 2))) {
+    stop("For system equal to \"two.dim\", y0 must contain either a vector of ",
+         "length two or a matrix where either nrow(y0) or ncol(y0) is 2")
+  }
+
+  if (state.names == "default") {
+    state.names <- if (system == "two.dim") c("x", "y") else "y"
+  }
+  if (system == "one.dim") {
+    stopifnot(length(state.names) == 1)
+  } else if (system == "two.dim") {
+    stopifnot(length(state.names) == 2)
+  }
+
+  if (system == "one.dim") {
+    if (ncol(y0) > nrow(y0)) {
+      y0 <- t(y0)
+    }
+  } else {
+    if (all(nrow(y0) == 2, ncol(y0) != 2)) {
+      y0 <- t(y0)
+    }
+  }
+  if (nrow(y0) > length(col)) {
+    col <- rep(col, nrow(y0))
+    message("Note: col has been reset as required")
+  } else if (nrow(y0) < length(col)) {
+    col <- col[1:nrow(y0)]
+    message("Note: col has been reset as required")
+  }
+  t <- seq(tlim[1], tlim[2], tstep)
+  x <- matrix(0, length(t), nrow(y0))
+  if (system == "two.dim") {
+    y <- x
+  }
+  for (i in 1:nrow(y0)) {
+    phase.trajectory <- deSolve::ode(times = t, y = stats::setNames(c(y0[i, ]), state.names),
+                                     func = deriv, parms = parameters, method = method)
+    x[, i] <- phase.trajectory[, 2]
+
+    if (system == "two.dim") {
+      y[, i] <- phase.trajectory[, 3]
+    }
+
+    if (all(!add, i == 1)) {
+      if (system == "one.dim") {
+        graphics::plot(t, x[, i], col = col[i], type = "l", ...)
+      } else {
+        graphics::plot(x[, i], y[, i], col = col[i], type = "l", ...)
+      }
+    } else {
+      if (system == "one.dim") {
+        lines(t, x[, i], col = col[i], type = "l", ...)
+      } else {
+        lines(x[, i], y[, i], col = col[i], type = "l", ...)
+      }
+    }
+  }
+  if (system == "one.dim") {
+    graphics::points(rep(tlim[1], nrow(y0)), y0, col = col, ...)
+    return(list(add        = add,
+                col        = col,
+                deriv      = deriv,
+                method     = method,
+                n          = n,
+                parameters = parameters,
+                system     = system,
+                t          = t,
+                tlim       = tlim,
+                tstep      = tstep,
+                y          = x,
+                y0         = y0))
+  } else {
+    graphics::points(y0[, 1], y0[, 2], col = col, ...)
+    return(list(add        = add,
+                col        = col,
+                deriv      = deriv,
+                n          = n,
+                method     = method,
+                parameters = parameters,
+                system     = system,
+                t          = t,
+                tlim       = tlim,
+                tstep      = tstep,
+                x          = x,
+                y          = y,
+                y0         = y0))
+  }
+}
